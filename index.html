@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Семейные задания</title>
+  <style>
+    :root{font-family:Arial,sans-serif;color:#202124;background:#f5f6f8}
+    *{box-sizing:border-box}body{margin:0}.wrap{max-width:900px;margin:0 auto;padding:22px}
+    header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:22px}
+    h1{font-size:24px;margin:0}h2{font-size:18px;margin:0 0 12px}
+    .muted{color:#687078;font-size:13px}.card{background:white;border:1px solid #e4e7eb;border-radius:16px;padding:18px;margin:12px 0}
+    .balance{font-size:34px;font-weight:700;color:#16834a;margin:6px 0}
+    .task{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #edf0f2}
+    .task:last-child{border:0}.grow{flex:1}.price{font-weight:700;white-space:nowrap}
+    button{border:0;border-radius:10px;padding:10px 14px;background:#1769e0;color:white;font-weight:600;cursor:pointer;font:inherit;font-weight:600}
+    button.secondary{background:#edf2fa;color:#174ea6}button.danger{background:#fce8e6;color:#b3261e}
+    button:disabled{opacity:.45;cursor:default}
+    button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #8ab4f8;outline-offset:2px}
+    input,select{padding:10px;border:1px solid #ccd2d9;border-radius:9px;width:100%;font:inherit}
+    label{display:block;font-size:13px;margin:10px 0 5px;color:#555}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .pill{font-size:12px;border-radius:20px;padding:5px 9px;background:#eef1f5;color:#555}
+    .ok{background:#e6f4ea;color:#137333}.pending{background:#fff4d6;color:#8a5b00}
+    .hidden{display:none!important}.error{color:#b3261e;margin-top:10px}.section-title{display:flex;justify-content:space-between;align-items:center}
+    #login{max-width:420px;margin:12vh auto;text-align:center}#gbtn{display:flex;justify-content:center;min-height:44px;margin-top:16px}
+    .days{display:flex;gap:8px;flex-wrap:wrap}.days label{margin:0;display:flex;gap:4px;align-items:center}.days input{width:auto}
+    #loading{position:fixed;top:0;left:0;right:0;padding:6px;text-align:center;font-size:13px;background:#1769e0;color:white;display:none}
+    body.busy #loading{display:block}body.busy main{pointer-events:none;opacity:.6}
+    @media(max-width:600px){.wrap{padding:14px}.grid{grid-template-columns:1fr}header{align-items:flex-start}.task{align-items:flex-start;flex-wrap:wrap}}
+  </style>
+</head>
+<body>
+<div id="loading">Загрузка…</div>
+<div class="wrap">
+  <section id="login" class="card">
+    <h1>Семейные задания</h1><p class="muted">Войдите с помощью Google</p>
+    <div id="gbtn"></div>
+    <div id="loginError" class="error"></div>
+  </section>
+  <main id="app" class="hidden">
+    <header><div><h1>Семейные задания</h1><div class="muted" id="identity"></div></div><button class="secondary" onclick="logout('', true)">Выйти</button></header>
+    <section class="card">
+      <div class="muted">Текущий баланс</div><div class="balance" id="balance">0,00 zł</div><div class="muted">Баланс обновляется после подтверждения родителем</div>
+    </section>
+    <section class="card">
+      <div class="section-title"><h2>Задания на сегодня</h2><span class="muted" id="today"></span></div>
+      <div id="tasks"></div>
+    </section>
+    <section id="parentPanel" class="hidden">
+      <section class="card"><div class="section-title"><h2>Ожидают проверки</h2><span class="pill pending" id="pendingCount">0</span></div><div id="pending"></div></section>
+      <section class="card">
+        <h2>Добавить задание</h2>
+        <label for="taskTitle">Название</label><input id="taskTitle" placeholder="Например, убрать игрушки">
+        <div class="grid"><div><label for="taskPrice">Оплата (zł)</label><input id="taskPrice" type="number" min="0" step="0.01" placeholder="2.00"></div>
+        <div><label for="repeat">Повторение</label><select id="repeat" onchange="toggleSchedule()"><option value="daily">Каждый день</option><option value="weekly">Выбранные дни недели</option><option value="monthly">Ежемесячно (число)</option><option value="once">Один раз</option></select></div></div>
+        <div id="weeklyDays" class="hidden"><label>Дни недели</label><div class="days">
+          <label><input type="checkbox" value="1"> Пн</label><label><input type="checkbox" value="2"> Вт</label><label><input type="checkbox" value="3"> Ср</label><label><input type="checkbox" value="4"> Чт</label><label><input type="checkbox" value="5"> Пт</label><label><input type="checkbox" value="6"> Сб</label><label><input type="checkbox" value="0"> Вс</label>
+        </div></div>
+        <div id="dateField" class="hidden"><label id="dateLabel" for="dueDate">Дата</label><input id="dueDate" type="date"></div>
+        <div class="row" style="margin-top:14px"><button onclick="createTask()">Сохранить задание</button></div><div id="taskError" class="error"></div>
+      </section>
+      <section class="card">
+        <h2>Выплатить наличными</h2>
+        <div class="grid"><div><label for="payoutAmount">Сумма (zł)</label><input id="payoutAmount" type="number" min="0.01" step="0.01" placeholder="10.00"></div><div><label for="payoutDescription">Комментарий</label><input id="payoutDescription" placeholder="Карманные деньги"></div></div>
+        <button style="margin-top:12px" onclick="payout()">Зафиксировать выплату</button><div id="payoutError" class="error"></div>
+      </section>
+      <section class="card">
+        <h2>Добавить пользователя</h2>
+        <div class="grid"><div><label for="userEmail">Google email</label><input id="userEmail" type="email"></div><div><label for="userName">Имя</label><input id="userName"></div></div>
+        <label for="userRole">Роль</label><select id="userRole"><option value="parent">Родитель</option><option value="child">Ребёнок</option></select>
+        <button style="margin-top:12px" onclick="addUser()">Добавить доступ</button><div id="userError" class="error"></div>
+      </section>
+    </section>
+    <section class="card"><h2>Последние операции</h2><div id="history" class="muted">Пока операций нет.</div></section>
+  </main>
+</div>
+
+<script>
+// ===== НАСТРОЙКИ: вставьте свои значения =====
+const CONFIG = {
+  CLIENT_ID: 'PASTE_CLIENT_ID.apps.googleusercontent.com',
+  API_URL: 'PASTE_WEB_APP_URL_ENDING_WITH_/exec'
+};
+// =============================================
+
+const TOKEN_KEY = 'chores_id_token';
+let idToken = '';
+let dashboard = null;
+let pendingRequests = 0;
+const $ = id => document.getElementById(id);
+const noop = () => {};
+
+// ---------- Вход через Google ----------
+function initGoogle() {
+  if (CONFIG.CLIENT_ID.startsWith('PASTE') || CONFIG.API_URL.startsWith('PASTE')) {
+    $('loginError').textContent = 'Укажите CLIENT_ID и API_URL в начале файла index.html.';
+    return;
+  }
+  google.accounts.id.initialize({client_id: CONFIG.CLIENT_ID, callback: onGoogleCredential, auto_select: true});
+  google.accounts.id.renderButton($('gbtn'), {type: 'standard', size: 'large', theme: 'outline', text: 'signin_with', shape: 'rectangular', locale: 'ru'});
+  const saved = savedToken();
+  if (saved) { idToken = saved; loadDashboard().catch(noop); }
+  else google.accounts.id.prompt();
+}
+function onGoogleCredential(response) {
+  idToken = response.credential;
+  try { sessionStorage.setItem(TOKEN_KEY, idToken); } catch (e) {}
+  $('loginError').textContent = '';
+  loadDashboard().catch(noop);
+}
+function tokenExpiresAt(t) {
+  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000; }
+  catch (e) { return 0; }
+}
+function savedToken() {
+  try {
+    const t = sessionStorage.getItem(TOKEN_KEY);
+    return t && tokenExpiresAt(t) - Date.now() > 60000 ? t : '';
+  } catch (e) { return ''; }
+}
+function logout(message, manual) {
+  idToken = ''; dashboard = null;
+  try { sessionStorage.removeItem(TOKEN_KEY); } catch (e) {}
+  $('app').classList.add('hidden'); $('login').classList.remove('hidden');
+  $('loginError').textContent = message || '';
+  if (manual && window.google && google.accounts) google.accounts.id.disableAutoSelect();
+}
+
+// ---------- Запросы к серверу ----------
+async function callApi(action, payload) {
+  let res;
+  try {
+    res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain;charset=utf-8'},
+      body: JSON.stringify({idToken, action, payload: payload || {}})
+    });
+  } catch (e) {
+    throw new Error('Нет связи с сервером. Проверьте интернет и API_URL.');
+  }
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); }
+  catch (e) { throw new Error('Сервер ответил не так, как ожидалось. Проверьте, что Web app развёрнут с доступом «Anyone».'); }
+  if (!data.ok) throw new Error(data.error || 'Неизвестная ошибка.');
+  return data.data;
+}
+function setBusy(delta) {
+  pendingRequests += delta;
+  document.body.classList.toggle('busy', pendingRequests > 0);
+}
+// Runs a request, shows errors, and returns a promise that rejects on failure.
+function run(action, payload, errorElId) {
+  setBusy(1);
+  return callApi(action, payload)
+    .catch(err => {
+      const msg = err.message || String(err);
+      if (/sign in|verified|not been added/i.test(msg)) logout(msg);
+      else if (errorElId) $(errorElId).textContent = msg;
+      else alert(msg);
+      throw err;
+    })
+    .finally(() => setBusy(-1));
+}
+
+// ---------- Экран ----------
+function loadDashboard() {
+  return run('dashboard', {}).then(data => {
+    dashboard = data;
+    $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+    $('identity').textContent = data.user.name + ', ' + (data.isParent ? 'родитель' : 'ребёнок');
+    $('balance').textContent = money(data.balance); $('today').textContent = data.today;
+    $('parentPanel').classList.toggle('hidden', !data.isParent);
+    renderTasks(); renderPending(); renderHistory();
+  });
+}
+function money(n) { return Number(n || 0).toLocaleString('pl-PL', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' zł'; }
+function renderTasks() {
+  const el = $('tasks'); el.innerHTML = '';
+  if (!dashboard.tasks.length) { el.innerHTML = '<p class="muted">На сегодня заданий нет.</p>'; return; }
+  dashboard.tasks.forEach(t => {
+    const row = document.createElement('div'); row.className = 'task';
+    const status = t.status === 'approved' ? '<span class="pill ok">Подтверждено</span>'
+      : t.status === 'pending' ? '<span class="pill pending">На проверке</span>'
+      : t.status === 'rejected' ? '<span class="pill">Нужно повторить</span>' + (t.rejectionReason ? ' <span class="muted">' + escapeHtml(t.rejectionReason) + '</span>' : '')
+      : '';
+    const locked = t.status === 'pending' || t.status === 'approved';
+    const button = dashboard.isParent ? '' :
+      `<button ${locked ? 'disabled' : ''} onclick="submitTask('${escapeHtml(t.id)}')">${t.status === 'rejected' ? 'Отправить снова' : 'Выполнено'}</button>`;
+    row.innerHTML = `<div class="grow"><strong>${escapeHtml(t.title)}</strong><div style="margin-top:5px">${status}</div></div><div class="price">${money(t.price)}</div>${button}`;
+    el.appendChild(row);
+  });
+}
+function renderPending() {
+  const el = $('pending'); el.innerHTML = ''; $('pendingCount').textContent = dashboard.pending.length;
+  if (!dashboard.pending.length) { el.innerHTML = '<p class="muted">Нет заданий на проверке.</p>'; return; }
+  dashboard.pending.forEach(p => {
+    const row = document.createElement('div'); row.className = 'task';
+    row.innerHTML = `<div class="grow"><strong>${escapeHtml(p.taskTitle)}</strong><div class="muted">${escapeHtml(p.dueDate)}, ${money(p.price)}</div></div>`
+      + `<button onclick="review('${escapeHtml(p.id)}','approved')">Подтвердить</button><button class="danger" onclick="review('${escapeHtml(p.id)}','rejected')">Отклонить</button>`;
+    el.appendChild(row);
+  });
+}
+function renderHistory() {
+  const el = $('history'); el.innerHTML = '';
+  if (!dashboard.recent.length) { el.textContent = 'Пока операций нет.'; return; }
+  dashboard.recent.forEach(t => {
+    const row = document.createElement('div'); row.className = 'task';
+    const date = t.createdAt ? new Date(t.createdAt).toLocaleDateString('ru-RU') : '';
+    row.innerHTML = `<div class="grow">${escapeHtml(t.description || t.type)}<div class="muted">${escapeHtml(date)}</div></div><strong>${Number(t.amount) > 0 ? '+' : ''}${money(t.amount)}</strong>`;
+    el.appendChild(row);
+  });
+}
+
+// ---------- Действия ----------
+function submitTask(id) {
+  run('requestCompletion', {taskId: id, dueDate: dashboard.today}).then(loadDashboard).catch(noop);
+}
+function review(id, decision) {
+  run('reviewCompletion', {completionId: id, decision, reason: 'Пожалуйста, попробуй ещё раз.'}).then(loadDashboard).catch(noop);
+}
+function createTask() {
+  const repeatType = $('repeat').value;
+  const days = [...document.querySelectorAll('#weeklyDays input:checked')].map(x => Number(x.value));
+  const p = {title: $('taskTitle').value, price: $('taskPrice').value, repeatType, daysOfWeek: days, dueDate: $('dueDate').value};
+  $('taskError').textContent = '';
+  run('createTask', p, 'taskError').then(() => {
+    $('taskTitle').value = ''; $('taskPrice').value = '';
+    return loadDashboard();
+  }).catch(noop);
+}
+function payout() {
+  $('payoutError').textContent = '';
+  run('payout', {amount: $('payoutAmount').value, description: $('payoutDescription').value}, 'payoutError').then(() => {
+    $('payoutAmount').value = ''; $('payoutDescription').value = '';
+    return loadDashboard();
+  }).catch(noop);
+}
+function addUser() {
+  $('userError').textContent = '';
+  run('addUser', {email: $('userEmail').value, name: $('userName').value, role: $('userRole').value}, 'userError').then(() => {
+    $('userEmail').value = ''; $('userName').value = '';
+    alert('Пользователь добавлен.');
+  }).catch(noop);
+}
+function toggleSchedule() {
+  const r = $('repeat').value;
+  $('weeklyDays').classList.toggle('hidden', r !== 'weekly');
+  $('dateField').classList.toggle('hidden', !['once', 'monthly'].includes(r));
+  $('dateLabel').textContent = r === 'monthly' ? 'Число месяца (выберите любую дату с нужным числом)' : 'Дата выполнения';
+}
+function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c])); }
+</script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="initGoogle()"></script>
+</body>
+</html>
